@@ -115,7 +115,7 @@ abstract class Agent {
 
             while ((offset < AGENT_MAX_BUFFER_SIZE) && (nbOccurences < nbLine)) {
                 long current = System.nanoTime();
-                if ((current - t0) > (timeout * 1_000_000l)) {
+                if ((timeout != -1) && (current - t0) > (timeout * 1_000_000l)) {
                     break;
                 }
 

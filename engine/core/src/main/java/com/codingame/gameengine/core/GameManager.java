@@ -443,14 +443,19 @@ abstract public class GameManager<T extends AbstractPlayer> {
      * 
      * @param turnMaxTime
      *            Duration in milliseconds.
+     *            -1 to disable timeout
      * @throws IllegalArgumentException
      *             if turnMaxTime &lt; 50 or &gt; 25000
      */
     public void setTurnMaxTime(int turnMaxTime) throws IllegalArgumentException {
-        if (turnMaxTime < MIN_TURN_TIME) {
-            throw new IllegalArgumentException("Invalid turn max time : stay above 50ms");
-        } else if (turnMaxTime > MAX_TURN_TIME) {
-            throw new IllegalArgumentException("Invalid turn max time : stay under 25s");
+        System.out.println("setTurnMaxTime");
+        if (turnMaxTime != -1)
+        {
+            if (turnMaxTime < MIN_TURN_TIME) {
+                throw new IllegalArgumentException("Invalid turn max time : stay above 50ms");
+            } else if (turnMaxTime > MAX_TURN_TIME) {
+                throw new IllegalArgumentException("Invalid turn max time : stay under 25s");
+            }
         }
         this.turnMaxTime = turnMaxTime;
     }
@@ -460,14 +465,19 @@ abstract public class GameManager<T extends AbstractPlayer> {
      * 
      * @param firstTurnMaxTime
      *            Duration in milliseconds.
+     *            -1 to disable timeout
      * @throws IllegalArgumentException
      *             if firstTurnMaxTime &lt; 50 or &gt; 25000
      */
     public void setFirstTurnMaxTime(int firstTurnMaxTime) throws IllegalArgumentException {
-        if (firstTurnMaxTime < MIN_TURN_TIME) {
-            throw new IllegalArgumentException("Invalid turn max time : stay above 50ms");
-        } else if (firstTurnMaxTime > MAX_TURN_TIME) {
-            throw new IllegalArgumentException("Invalid turn max time : stay under 25s");
+        System.out.println("setFirstTurnMaxTime");
+        if (turnMaxTime != -1)
+        {
+            if (firstTurnMaxTime < MIN_TURN_TIME) {
+                throw new IllegalArgumentException("Invalid turn max time : stay above 50ms");
+            } else if (firstTurnMaxTime > MAX_TURN_TIME) {
+                throw new IllegalArgumentException("Invalid turn max time : stay under 25s");
+            }
         }
         this.firstTurnMaxTime = firstTurnMaxTime;
     }

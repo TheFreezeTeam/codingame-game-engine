@@ -98,7 +98,7 @@ class RefereeAgent extends Agent {
                 while ((offset < maxBufferSize) && (processStdout.available() > 0)
                         && (nbOccurences < nbLine)) {
                     current = System.nanoTime();
-                    if ((current - t0) > (timeout * 1_000_000L)) {
+                    if ((timeout != -1) && (current - t0) > (timeout * 1_000_000L)) {
                         break;
                     }
 
