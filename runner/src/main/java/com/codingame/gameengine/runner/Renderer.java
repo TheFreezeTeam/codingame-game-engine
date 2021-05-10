@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -39,6 +40,11 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.owasp.html.AttributePolicy;
+import org.owasp.html.ElementPolicy;
+import org.owasp.html.HtmlPolicyBuilder;
+import org.owasp.html.PolicyFactory;
+import org.owasp.html.Sanitizers;
 
 import com.codingame.gameengine.runner.ConfigHelper.GameConfig;
 import com.codingame.gameengine.runner.ConfigHelper.GameType;
@@ -209,6 +215,8 @@ class Renderer {
 
             Path origAssetsPath = tmpdir.resolve("assets");
             try {
+                List<String> linkedImages = new ArrayList<>();
+
                 Files.find(origAssetsPath, 100, (p, bfa) -> bfa.isRegularFile()).forEach(
                     f -> {
                         try {
@@ -227,11 +235,13 @@ class Renderer {
                                     jsonToWriteTo = tmpdir.resolve("hashed_assets").resolve(newName).toString();
                                     Files.createDirectories(tmpdir.resolve("hashed_assets"));
                                     sprites.add(newName);
+                                    linkedImages.add(hashedImageName);
                                 } else {
                                     String relativeImagePath = tmpdir.relativize(imagePath).toString();
                                     jsonObject.getAsJsonObject("meta").add("image", new JsonPrimitive(relativeImagePath));
                                     jsonToWriteTo = f.toString();
                                     sprites.add(tmpdir.relativize(f).toString().replace("\\", "/"));
+                                    linkedImages.add(relativeImagePath);
                                 }
                                 try (FileWriter writer = new FileWriter(jsonToWriteTo)) {
                                     Gson gson = new GsonBuilder().create();
@@ -295,6 +305,14 @@ class Renderer {
                         }
                     }
                 );
+
+                // Don't load images that are also getting loaded by spritesheets
+                for (String imageName : linkedImages) {
+                    images.entrySet().removeIf(
+                        entry -> entry.getValue().getAsString().equals(imageName)
+                    );
+                }
+
             } catch (NoSuchFileException e) {
                 System.out.println("Directory src/main/resources/view/assets not found.");
             }
@@ -434,8 +452,10 @@ class Renderer {
     }
 
     private void checkLeaguePopups(QuestionConfig questionConfig, String tag, ExportReport exportReport) {
-        if (!questionConfig.getWelcomeLanguageMap().containsKey(Constants.LANGUAGE_ID_ENGLISH)
-            || questionConfig.getWelcomeLanguageMap().get(Constants.LANGUAGE_ID_ENGLISH).isEmpty()) {
+        if (
+            !questionConfig.getWelcomeLanguageMap().containsKey(Constants.LANGUAGE_ID_ENGLISH)
+                || questionConfig.getWelcomeLanguageMap().get(Constants.LANGUAGE_ID_ENGLISH).isEmpty()
+        ) {
             exportReport.addItem(
                 ReportItemType.WARNING, tag + "Missing welcome_"
                     + Constants.LANGUAGE_CODE[Constants.LANGUAGE_ID_ENGLISH - 1] + ".html file."
@@ -443,9 +463,11 @@ class Renderer {
         } else {
             for (int languageId : questionConfig.getWelcomeLanguageMap().keySet()) {
                 //Avoid checking the same popup twice if duplicated
-                if (languageId != Constants.LANGUAGE_ID_ENGLISH
-                    && questionConfig.getWelcomeLanguageMap().get(languageId)
-                        .equals(questionConfig.getWelcomeLanguageMap().get(Constants.LANGUAGE_ID_ENGLISH))) {
+                if (
+                    languageId != Constants.LANGUAGE_ID_ENGLISH
+                        && questionConfig.getWelcomeLanguageMap().get(languageId)
+                            .equals(questionConfig.getWelcomeLanguageMap().get(Constants.LANGUAGE_ID_ENGLISH))
+                ) {
                     continue;
                 }
 
@@ -479,8 +501,10 @@ class Renderer {
     }
 
     private void checkStatement(QuestionConfig questionConfig, String tag, ExportReport exportReport) {
-        if (!questionConfig.getStatementsLanguageMap().containsKey(Constants.LANGUAGE_ID_ENGLISH)
-            || questionConfig.getStatementsLanguageMap().get(Constants.LANGUAGE_ID_ENGLISH).isEmpty()) {
+        if (
+            !questionConfig.getStatementsLanguageMap().containsKey(Constants.LANGUAGE_ID_ENGLISH)
+                || questionConfig.getStatementsLanguageMap().get(Constants.LANGUAGE_ID_ENGLISH).isEmpty()
+        ) {
             exportReport.addItem(ReportItemType.ERROR, tag + "Missing statement_en.html file. An English statement is mandatory.");
         }
     }
@@ -530,10 +554,12 @@ class Renderer {
             }
             if (questionConfig.getSortingOrder() == null) {
                 throw new MissingConfigException("An optimization game must have a sorting_order property in config.ini.");
-            } else if (!"ASC".equalsIgnoreCase(questionConfig.getSortingOrder())
-                && !"DESC".equalsIgnoreCase(questionConfig.getSortingOrder())) {
-                    throw new MissingConfigException("The sorting order for an optimization game must be ASC (ascendant) or DESC (descendant)");
-                }
+            } else if (
+                !"ASC".equalsIgnoreCase(questionConfig.getSortingOrder())
+                    && !"DESC".equalsIgnoreCase(questionConfig.getSortingOrder())
+            ) {
+                throw new MissingConfigException("The sorting order for an optimization game must be ASC (ascendant) or DESC (descendant)");
+            }
         }
 
         switch (gameConfig.getGameType()) {
@@ -586,12 +612,23 @@ class Renderer {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                         String relativePath = sourceFolderPath.relativize(file).toString();
-                        if (relativePath.startsWith("config") || relativePath.startsWith("src") || relativePath.equals("pom.xml")) {
+
+                        if (whiteListed(relativePath) && !blacklisted(relativePath)) {
                             zos.putNextEntry(new ZipEntry(sourceFolderPath.relativize(file).toString().replace('\\', '/')));
                             Files.copy(file, zos);
                             zos.closeEntry();
                         }
                         return FileVisitResult.CONTINUE;
+                    }
+
+                    private boolean blacklisted(String relativePath) {
+                        return relativePath.contains("/node_modules/");
+                    }
+
+                    private boolean whiteListed(String relativePath) {
+                        return relativePath.startsWith("config")
+                            || relativePath.startsWith("src")
+                            || relativePath.equals("pom.xml");
                     }
                 }
             );
@@ -711,17 +748,27 @@ class Renderer {
                                                 List<String> lines = Arrays.asList(statement.split("\\\n"));
 
                                                 try {
-                                                    JsonObject statements = StatementSplitter.generateSplitStatementInMemory(lines, exportReport);
-
-                                                    exchange.getResponseSender().send(statements.toString());
                                                     exchange.setStatusCode(StatusCodes.OK);
+                                                    JsonObject statements = StatementSplitter.generateSplitStatementInMemory(lines, exportReport);
+                                                    Iterator<String> keys = statements.keySet().iterator();
+                                                    if (keys.hasNext()) {
+                                                        while (keys.hasNext()) {
+                                                            String key = keys.next();
+                                                            statement = sanitizeHTML(statements.get(key).getAsString());
+                                                            statements.addProperty(key, statement);
+                                                        }
+                                                    } else {
+                                                        statements.add("level1", new JsonPrimitive(sanitizeHTML(statement)));
+                                                    }
+                                                    exchange.getResponseSender().send(statements.toString());
                                                 } catch (IOException ex) {
                                                     sendException(e, ex, StatusCodes.BAD_REQUEST);
                                                 }
                                             }, StandardCharsets.UTF_8);
                                         } else if (exchange.getRelativePath().equals("/statement")) {
-                                            File statementFileEN = sourceFolderPath.resolve("config/statement_en.html").toFile();
-                                            File statementFileFR = sourceFolderPath.resolve("config/statement_fr.html").toFile();
+                                            File statementFileEN = getStatementFile(sourceFolderPath, "en");
+                                            File statementFileFR = getStatementFile(sourceFolderPath, "fr");
+
                                             if (exchange.getRequestMethod().equalToString("GET")) {
                                                 JsonObject statements = new JsonObject();
                                                 String statementEN = FileUtils.readFileToString(statementFileEN, StandardCharsets.UTF_8);
@@ -767,6 +814,15 @@ class Renderer {
                                     } finally {
                                         exchange.endExchange();
                                     }
+                                }
+
+                                private File getStatementFile(Path sourceFolderPath, String langId) {
+                                    File file = sourceFolderPath.resolve("config/statement_" + langId + ".html").toFile();
+                                    if (!file.exists()) {
+                                        file = sourceFolderPath.resolve("config/statement_" + langId + ".html.tpl").toFile();
+                                    }
+                                    return file;
+
                                 }
 
                                 private JsonElement toJsonElement(String statementFR) {
@@ -839,5 +895,95 @@ class Renderer {
     public void render(int playerCount, String jsonResult) {
         List<Path> paths = generateView(jsonResult, null);
         serveHTTP(paths);
+    }
+
+    public static String sanitizeHTML(String html) {
+        PolicyFactory htmlSanitizer = Sanitizers.FORMATTING
+            .and(Sanitizers.LINKS)
+            .and(Sanitizers.BLOCKS)
+            .and(Sanitizers.IMAGES)
+            .and(Sanitizers.TABLES)
+            .and(new HtmlPolicyBuilder().allowElements(new ElementPolicy() {
+                public String apply(String elementName, List<String> attrs) {
+                    // force a target="_blank" on all links
+                    if ("a".equals(elementName)) {
+                        attrs.add("target");
+                        attrs.add("_blank");
+                    }
+                    return elementName;
+                }
+            }, "const", "var", "action", "keyword",
+                "a",
+                "track",
+                "article",
+                "aside",
+                "header",
+                "hgroup",
+                "hr",
+                "footer",
+                "nav",
+                "section",
+                "summary",
+                "details",
+                "base",
+                "basefont",
+                "span",
+                "title",
+                "button",
+                "datalist",
+                "form",
+                "keygen",
+                "label",
+                "input",
+                "legend",
+                "fieldset",
+                "meter",
+                "optgroup",
+                "option",
+                "select",
+                "textarea",
+                "abbr",
+                "acronym",
+                "address",
+                "bdi",
+                "bdo",
+                "center",
+                "cite",
+                "del",
+                "dfn",
+                "kbd",
+                "mark",
+                "output",
+                "progress",
+                "q",
+                "rp",
+                "rt",
+                "ruby",
+                "samp",
+                "wbr",
+                "dd",
+                "dir",
+                "dl",
+                "dt",
+                "menu",
+                "area",
+                "figcaption",
+                "figure",
+                "map",
+                "param",
+                "source",
+                "audio",
+                "time",
+                "video"
+            )
+                .allowWithoutAttributes("span")
+                .allowAttributes("class", "colspan").globally()
+                .allowStandardUrlProtocols()
+                .allowStyling()
+                .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+                .requireRelNofollowOnLinks()
+                .toFactory()
+            );
+        return htmlSanitizer.sanitize(html);
     }
 }

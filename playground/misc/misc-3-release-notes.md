@@ -2,6 +2,87 @@
 
 The CodinGame SDK is regularly updated and improved. This document lets you know what changed in the latest releases.
 
+## 4.1.2
+
+### 🎁 Features
+
+- PIXI updated from v5.3.8 to v6.0.2
+
+### 🐞 Bug fix
+
+- Fixed missing texture errors no longer being caught
+
+### 📝 Refactoring
+
+- Removed unused code
+- Removed link to littera tool from docs
+
+## 4.0.2
+
+### 🐞 Bug fix
+
+- When exporting a game, folders named "node_modules" are now ignored.
+- Renamed viewer modules' `name` variable to `moduleName` for consistency and future-proofing.
+
+### ⚠️ Known issues
+
+- Missing texture errors are no longer reported
+
+
+## 4.0.1
+
+⛔ Broken version
+
+## 4.0.0
+
+### 🎁 Features
+
+- PIXI updated from v4.8.5 to v5.3.8
+
+## 3.15.6
+
+### 🐞 Bug fix
+
+- Fixed a bug in the TooltipModule causing tooltips to stay visible permanently.
+- BufferedGroup will now dynamically resize to fit contents.
+- Fixed outstanding CSS issues in the statement preview page.
+
+## 3.15.5
+
+### 🐞 Bug fix
+
+- Fixed viewer sometimes crashing on startup.
+
+## 3.15.4
+
+### 🐞 Bug fix
+
+- Added a missing chunk of CSS from the statement preview page.
+
+
+## 3.15.3
+
+### 🐞 Bug fix
+
+- The statement preview page now presents HTML as it would show in the CodinGame IDE.
+- The statement preview page now looks for both `.html` and `.html.tpl` files.
+- Fixed `ToggleModule` taking up a lot of characters in the game result from the allowed quota.
+
+
+## 3.15.2
+
+### 🐞 Bug fix
+
+- `TooltipModule` would sometimes show an empty tooltip block
+- Fixed `TooltipModule` taking up a lot of characters in the game result from the allowed quota
+- Improved documentation and usage of `GameRunner.simulate()` and `GameResult`
+
+## 3.15.1
+
+### 🐞 Bug fix
+
+- Lines were incorrectly drawn if only one of their two points were changed
+
 ## 3.15.0
 
 ### 🎁 Features
@@ -123,7 +204,7 @@ The CodinGame SDK is regularly updated and improved. This document lets you know
 
 ## 3.8.0
 
-- Broken version, use 3.8.1
+⛔ Broken version
 
 ## 3.7.0
 
